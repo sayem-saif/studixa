@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { GraduationCap, BarChart3, Award, Bell, Code2, LogOut, Gift, Briefcase, ArrowLeft } from "lucide-react";
+import { GraduationCap, BarChart3, Award, Bell, Code2, LogOut, Gift, Briefcase, ArrowLeft, Brain, FileText, Github } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -10,8 +10,11 @@ import CertificateTracker from "@/components/college/CertificateTracker";
 import NotificationsPanel from "@/components/college/NotificationsPanel";
 import SkillCourses from "@/components/college/SkillCourses";
 import InternshipApplication from "@/components/college/InternshipApplication";
+import AIMentor from "@/components/college/AIMentor";
+import DocumentSummarizer from "@/components/college/DocumentSummarizer";
+import ProjectTracker from "@/components/college/ProjectTracker";
 
-type ActiveSection = "dashboard" | "cgpa" | "certificates" | "notifications" | "skills" | "internship";
+type ActiveSection = "dashboard" | "cgpa" | "certificates" | "notifications" | "skills" | "internship" | "ai-mentor" | "summarizer" | "projects";
 
 const CollegeDashboard = () => {
   const [profile, setProfile] = useState<any>(null);
@@ -43,6 +46,9 @@ const CollegeDashboard = () => {
     { id: "certificates" as const, title: "Certificate Tracker", desc: "Store all your certificates", icon: Award },
     { id: "notifications" as const, title: "Notifications", desc: "Events, hackathons & internships", icon: Bell },
     { id: "skills" as const, title: "Skill Courses", desc: "Learn C, Python, Java & Web Dev", icon: Code2 },
+    { id: "ai-mentor" as const, title: "AI Mentor", desc: "Get career & tech guidance", icon: Brain },
+    { id: "summarizer" as const, title: "Document Summarizer", desc: "Summarize PDFs & study materials", icon: FileText },
+    { id: "projects" as const, title: "Project Tracker", desc: "Track your GitHub projects", icon: Github },
   ];
 
   if (loading) return (
@@ -69,6 +75,12 @@ const CollegeDashboard = () => {
             userEmail={profile.email}
           />
         );
+      case "ai-mentor":
+        return <AIMentor profile={profile} />;
+      case "summarizer":
+        return <DocumentSummarizer profile={profile} />;
+      case "projects":
+        return <ProjectTracker userId={profile.user_id} />;
       default:
         return null;
     }
@@ -130,7 +142,7 @@ const CollegeDashboard = () => {
             </motion.div>
 
             {/* Feature Cards */}
-            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
               {features.map((f, i) => (
                 <motion.button
                   key={i}

@@ -1,32 +1,198 @@
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { BarChart3, BookOpen, Trophy, Target, TrendingUp, Crown } from "lucide-react";
+import { BarChart3, BookOpen, Trophy, Target, TrendingUp, Crown, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { supabase } from "@/integrations/supabase/client";
 
 interface ProgressTrackerProps {
   profile: any;
 }
 
-const ProgressTracker = ({ profile }: ProgressTrackerProps) => {
-  // Mock progress data
-  const subjectProgress = [
-    { name: "Mathematics", progress: 65, quizScore: 78, color: "subject-purple" },
-    { name: "Science", progress: 45, quizScore: 82, color: "subject-green" },
-    { name: "English", progress: 80, quizScore: 90, color: "subject-blue" },
-    { name: "Social Studies", progress: 30, quizScore: 75, color: "subject-orange" },
-  ];
+interface SubjectProgress {
+  name: string;
+  progress: number;
+  quizScore: number;
+  color: string;
+  totalChapters: number;
+  completedChapters: number;
+}
 
-  const stats = [
-    { label: "Chapters Completed", value: "12/32", icon: BookOpen, color: "primary" },
-    { label: "Quizzes Taken", value: "28", icon: Trophy, color: "premium" },
-    { label: "Average Score", value: "81%", icon: Target, color: "success" },
-    { label: "Study Streak", value: "5 days", icon: TrendingUp, color: "accent" },
+const ProgressTracker = ({ profile }: ProgressTrackerProps) => {
+  const [subjectProgress, setSubjectProgress] = useState<SubjectProgress[]>([]);
+  const [stats, setStats] = useState({
+    totalChapters: 0,
+    completedChapters: 0,
+    quizzesTaken: 0,
+    averageScore: 0,
+    studyStreak: 0,
+  });
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchRealProgress();
+  }, [profile]);
+
+  const fetchRealProgress = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) return;
+
+      // Get all subjects for the user's class
+      const { data: subjects } = await supabase
+        .from("subjects")
+        .select("id, name, icon, color")
+        .eq("class_level", profile?.school_class || 9);
+
+      if (!subjects || subjects.length === 0) {
+        setLoading(false);
+        return;
+      }
+
+      const progressData: SubjectProgress[] = [];
+      let totalChaps = 0;
+      let completedChaps = 0;
+      let totalQuizzesTaken = 0;
+      let totalQuizScore = 0;
+      let quizCount = 0;
+
+      // Get progress for each subject
+      for (const subject of subjects) {
+        // Get all chapters for this subject
+        const { data: chapters } = await supabase
+          .from("chapters")
+          .select("id")
+          .eq("subject_id", subject.id);
+
+        const totalChapters = chapters?.length || 0;
+        totalChaps += totalChapters;
+
+        if (totalChapters === 0) continue;
+
+        // Get user's progress for these chapters
+        const chapterIds = chapters?.map(c => c.id) || [];
+        const { data: userProgress } = await supabase
+          .from("user_progress")
+          .select("chapter_id, completed, quiz_score")
+          .eq("user_id", session.user.id)
+          .in("chapter_id", chapterIds);
+
+        const completed = userProgress?.filter(p => p.completed).length || 0;
+        completedChaps += completed;
+
+        const quizScores = userProgress?.filter(p => p.quiz_score !== null).map(p => p.quiz_score || 0) || [];
+        const avgQuizScore = quizScores.length > 0
+          ? Math.round(quizScores.reduce((sum, score) => sum + score, 0) / quizScores.length)
+          : 0;
+
+        totalQuizzesTaken += quizScores.length;
+        if (quizScores.length > 0) {
+          totalQuizScore += quizScores.reduce((sum, score) => sum + score, 0);
+          quizCount += quizScores.length;
+        }
+
+        const colorMap: Record<string, string> = {
+          purple: "subject-purple",
+          green: "subject-green",
+          blue: "subject-blue",
+          orange: "subject-orange",
+          teal: "subject-teal",
+        };
+
+        progressData.push({
+          name: subject.name,
+          progress: totalChapters > 0 ? Math.round((completed / totalChapters) * 100) : 0,
+          quizScore: avgQuizScore,
+          color: colorMap[subject.color] || "primary",
+          totalChapters,
+          completedChapters: completed,
+        });
+      }
+
+      // Calculate overall average quiz score
+      const overallAvgScore = quizCount > 0 ? Math.round(totalQuizScore / quizCount) : 0;
+
+      // Calculate study streak (simplified - based on last activity)
+      const { data: recentProgress } = await supabase
+        .from("user_progress")
+        .select("updated_at")
+        .eq("user_id", session.user.id)
+        .order("updated_at", { ascending: false })
+        .limit(7);
+
+      let streak = 0;
+      if (recentProgress && recentProgress.length > 0) {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        
+        for (let i = 0; i < recentProgress.length; i++) {
+          const activityDate = new Date(recentProgress[i].updated_at);
+          activityDate.setHours(0, 0, 0, 0);
+          
+          const daysDiff = Math.floor((today.getTime() - activityDate.getTime()) / (1000 * 60 * 60 * 24));
+          
+          if (daysDiff === i) {
+            streak++;
+          } else {
+            break;
+          }
+        }
+      }
+
+      setSubjectProgress(progressData);
+      setStats({
+        totalChapters: totalChaps,
+        completedChapters: completedChaps,
+        quizzesTaken: totalQuizzesTaken,
+        averageScore: overallAvgScore,
+        studyStreak: streak,
+      });
+    } catch (error) {
+      console.error("Error fetching progress:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center p-12">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  const statsDisplay = [
+    { 
+      label: "Chapters Completed", 
+      value: `${stats.completedChapters}/${stats.totalChapters}`, 
+      icon: BookOpen, 
+      color: "primary" 
+    },
+    { 
+      label: "Quizzes Taken", 
+      value: stats.quizzesTaken.toString(), 
+      icon: Trophy, 
+      color: "premium" 
+    },
+    { 
+      label: "Average Score", 
+      value: stats.averageScore > 0 ? `${stats.averageScore}%` : "N/A", 
+      icon: Target, 
+      color: "success" 
+    },
+    { 
+      label: "Study Streak", 
+      value: stats.studyStreak > 0 ? `${stats.studyStreak} day${stats.studyStreak > 1 ? 's' : ''}` : "Start today!", 
+      icon: TrendingUp, 
+      color: "accent" 
+    },
   ];
 
   return (
     <div className="space-y-6">
       {/* Stats Grid */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {stats.map((stat, index) => (
+        {statsDisplay.map((stat, index) => (
           <motion.div
             key={index}
             className="p-4 rounded-xl bg-card border border-border"
@@ -56,25 +222,38 @@ const ProgressTracker = ({ profile }: ProgressTrackerProps) => {
         </div>
 
         <div className="space-y-6">
-          {subjectProgress.map((subject, index) => (
-            <div key={index}>
-              <div className="flex items-center justify-between mb-2">
-                <span className="font-medium">{subject.name}</span>
-                <div className="flex items-center gap-4 text-sm">
-                  <span className="text-muted-foreground">{subject.progress}% complete</span>
-                  <span className={`font-medium text-${subject.color}`}>Quiz: {subject.quizScore}%</span>
+          {subjectProgress.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <BookOpen className="w-12 h-12 mx-auto mb-4 opacity-50" />
+              <p>Start learning to see your progress here!</p>
+            </div>
+          ) : (
+            subjectProgress.map((subject, index) => (
+              <div key={index}>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="font-medium">{subject.name}</span>
+                  <div className="flex items-center gap-4 text-sm">
+                    <span className="text-muted-foreground">
+                      {subject.completedChapters}/{subject.totalChapters} chapters • {subject.progress}%
+                    </span>
+                    {subject.quizScore > 0 && (
+                      <span className={`font-medium text-${subject.color}`}>
+                        Quiz: {subject.quizScore}%
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <div className="h-3 bg-secondary rounded-full overflow-hidden">
+                  <motion.div
+                    className={`h-full bg-${subject.color} rounded-full`}
+                    initial={{ width: 0 }}
+                    animate={{ width: `${subject.progress}%` }}
+                    transition={{ duration: 1, delay: 0.3 + index * 0.1 }}
+                  />
                 </div>
               </div>
-              <div className="h-3 bg-secondary rounded-full overflow-hidden">
-                <motion.div
-                  className={`h-full bg-${subject.color} rounded-full`}
-                  initial={{ width: 0 }}
-                  animate={{ width: `${subject.progress}%` }}
-                  transition={{ duration: 1, delay: 0.3 + index * 0.1 }}
-                />
-              </div>
-            </div>
-          ))}
+            ))
+          )}
         </div>
       </motion.div>
 

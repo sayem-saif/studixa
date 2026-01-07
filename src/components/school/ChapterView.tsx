@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { ArrowLeft, BookOpen, CheckCircle, Play, FileText, Loader2, Lock } from "lucide-react";
+import { ArrowLeft, BookOpen, CheckCircle, Play, FileText, Loader2, Lock, FileDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import PDFViewer from "./PDFViewer";
 
 interface ChapterViewProps {
   subject: any;
@@ -18,6 +19,7 @@ const ChapterView = ({ subject, profile, onBack, onStartQuiz }: ChapterViewProps
   const [userProgress, setUserProgress] = useState<{ [key: string]: { completed: boolean; quizScore: number | null } }>({});
   const [loading, setLoading] = useState(true);
   const [marking, setMarking] = useState(false);
+  const [showPDF, setShowPDF] = useState(false);
 
   const fetchData = async () => {
     // Get chapters from database
@@ -121,6 +123,17 @@ const ChapterView = ({ subject, profile, onBack, onStartQuiz }: ChapterViewProps
     const isComplete = isChapterComplete(selectedChapter.id);
     const quizScore = userProgress[selectedChapter.id]?.quizScore;
 
+    // If PDF viewer is open
+    if (showPDF && selectedChapter.pdf_url) {
+      return (
+        <PDFViewer
+          pdfUrl={selectedChapter.pdf_url}
+          title={`${selectedChapter.name} - ${subject.name}`}
+          onClose={() => setShowPDF(false)}
+        />
+      );
+    }
+
     return (
       <div>
         <Button
@@ -157,6 +170,19 @@ const ChapterView = ({ subject, profile, onBack, onStartQuiz }: ChapterViewProps
             <div className="p-4 rounded-xl bg-primary/5 border border-primary/20 mb-6">
               <h3 className="text-lg font-semibold text-primary mb-2">Summary</h3>
               <p className="text-muted-foreground">{selectedChapter.summary}</p>
+            </div>
+          )}
+
+          {selectedChapter.pdf_url && (
+            <div className="mb-6">
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => setShowPDF(true)}
+              >
+                <FileDown className="w-4 h-4 mr-2" />
+                View Chapter PDF
+              </Button>
             </div>
           )}
 
@@ -277,6 +303,12 @@ const ChapterView = ({ subject, profile, onBack, onStartQuiz }: ChapterViewProps
                       <p className="text-sm text-muted-foreground line-clamp-1">
                         {chapter.summary}
                       </p>
+                      {chapter.pdf_url && (
+                        <span className="inline-flex items-center gap-1 text-xs text-primary mt-1">
+                          <FileDown className="w-3 h-3" />
+                          PDF Available
+                        </span>
+                      )}
                     </div>
                   </div>
                   <div className="flex items-center gap-3">

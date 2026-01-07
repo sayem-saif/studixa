@@ -24,18 +24,19 @@ const AIMentor = ({ profile }: AIMentorProps) => {
       setMessages([{
         id: "welcome",
         role: "assistant",
-        content: `Hello! 👋 I'm your **AI Study Mentor**. I can help you with:
+        content: `Hello! 👋 I'm your **AI Career Mentor**. I can help you with:
 
-📚 **Study Planning** - Create personalized study schedules
-❓ **Doubt Solving** - Explain concepts from your subjects
-📝 **Exam Preparation** - Tips and strategies for better scores
-🎯 **Quick Summaries** - Get key points of any topic
+💼 **Career Guidance** - Explore career paths and opportunities
+📚 **Technical Concepts** - Explain programming and tech topics
+🎯 **Interview Prep** - Tips for technical interviews
+💻 **Project Ideas** - Suggestions for portfolio projects
+📝 **Resume Tips** - Improve your resume and LinkedIn profile
 
-I'm trained on NCERT curriculum for Class ${profile?.school_class || "9-12"}. What would you like to learn today?`,
+I specialize in ${profile?.college_branch || "Computer Science"} and can help you grow your skills. What would you like to know?`,
         timestamp: new Date(),
       }]);
     }
-  }, [profile?.school_class, messages.length, setMessages]);
+  }, [profile?.college_branch, messages.length, setMessages]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -69,14 +70,15 @@ I'm trained on NCERT curriculum for Class ${profile?.school_class || "9-12"}. Wh
     setMessages([{
       id: "welcome",
       role: "assistant",
-      content: `Hello! 👋 I'm your **AI Study Mentor**. I can help you with:
+      content: `Hello! 👋 I'm your **AI Career Mentor**. I can help you with:
 
-📚 **Study Planning** - Create personalized study schedules
-❓ **Doubt Solving** - Explain concepts from your subjects
-📝 **Exam Preparation** - Tips and strategies for better scores
-🎯 **Quick Summaries** - Get key points of any topic
+💼 **Career Guidance** - Explore career paths and opportunities
+📚 **Technical Concepts** - Explain programming and tech topics
+🎯 **Interview Prep** - Tips for technical interviews
+💻 **Project Ideas** - Suggestions for portfolio projects
+📝 **Resume Tips** - Improve your resume and LinkedIn profile
 
-I'm trained on NCERT curriculum for Class ${profile?.school_class || "9-12"}. What would you like to learn today?`,
+I specialize in ${profile?.college_branch || "Computer Science"} and can help you grow your skills. What would you like to know?`,
       timestamp: new Date(),
     }]);
   };
@@ -133,7 +135,7 @@ I'm trained on NCERT curriculum for Class ${profile?.school_class || "9-12"}. Wh
                 );
               }
               // Handle emoji headers
-              if (line.trim().match(/^[📚❓📝🎯]/)) {
+              if (line.trim().match(/^[📚❓📝🎯💼💻📊🔥✨]/)) {
                 return (
                   <p key={i} className="font-semibold mb-2 mt-3">{line}</p>
                 );
@@ -156,20 +158,14 @@ I'm trained on NCERT curriculum for Class ${profile?.school_class || "9-12"}. Wh
             <Brain className="w-6 h-6" />
           </div>
           <div>
-            <h3 className="font-semibold">AI Study Mentor</h3>
-            <p className="text-sm text-primary-foreground/80">Powered by AI - Ask me anything!</p>
+            <h3 className="font-semibold">AI Career Mentor</h3>
+            <p className="text-sm text-primary-foreground/80">Your personal tech career guide</p>
           </div>
           <div className="ml-auto flex gap-2">
             <Button variant="ghost" size="sm" onClick={handleNewChat} className="text-primary-foreground hover:bg-primary-foreground/20">
               <RotateCcw className="w-4 h-4 mr-1" />
               New Chat
             </Button>
-            {profile?.subscription_status !== "premium" && (
-              <Button variant="hero-outline" size="sm">
-                <Crown className="w-4 h-4 mr-1" />
-                Upgrade
-              </Button>
-            )}
           </div>
         </div>
       </div>
@@ -208,7 +204,7 @@ I'm trained on NCERT curriculum for Class ${profile?.school_class || "9-12"}. Wh
           <Input
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="Ask about any topic, concept, or get study help..."
+            placeholder="Ask about careers, tech concepts, projects, or interview tips..."
             className="flex-1"
             disabled={isLoading}
           />
