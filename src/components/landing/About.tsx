@@ -9,13 +9,6 @@ const founders = [
     avatar: "S",
     color: "primary",
   },
-  {
-    name: "Himasri",
-    role: "Co-Founder & COO",
-    bio: "Dedicated to creating meaningful learning experiences. Focused on bridging the gap between academic knowledge and real-world skills.",
-    avatar: "H",
-    color: "accent",
-  },
 ];
 
 const About = () => {
@@ -41,11 +34,11 @@ const About = () => {
           </p>
         </motion.div>
 
-        <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+        <div className="flex justify-center max-w-4xl mx-auto">
           {founders.map((founder, index) => (
             <motion.div
               key={index}
-              className="group"
+              className="group max-w-md w-full"
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
