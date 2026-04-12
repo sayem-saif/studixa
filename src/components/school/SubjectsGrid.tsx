@@ -43,9 +43,45 @@ const SubjectsGrid = ({ profile }: SubjectsGridProps) => {
         .from("subjects")
         .select("*")
         .eq("class_level", profile?.school_class)
-        .or(`stream.eq.${stream},stream.is.null`);
+        .or(`stream.eq.${stream},stream.is.null`)
+        .order("name", { ascending: true });
 
-      setSubjects(data || []);
+      const subjectList = data || [];
+
+      if (subjectList.length === 0) {
+        setSubjects([]);
+        setLoading(false);
+        return;
+      }
+
+      const subjectIds = subjectList.map((s) => s.id);
+      const { data: chapters } = await supabase
+        .from("chapters")
+        .select("id, subject_id")
+        .in("subject_id", subjectIds);
+
+      const chapterCountBySubject: Record<string, number> = {};
+      (chapters || []).forEach((chapter) => {
+        chapterCountBySubject[chapter.subject_id] = (chapterCountBySubject[chapter.subject_id] || 0) + 1;
+      });
+
+      // Remove duplicates by subject name and keep the entry with more chapters.
+      const dedupedByName = new Map<string, any>();
+      subjectList.forEach((subject) => {
+        const chapterCount = chapterCountBySubject[subject.id] || 0;
+        const existing = dedupedByName.get(subject.name);
+
+        if (!existing || chapterCount > existing.chapterCount) {
+          dedupedByName.set(subject.name, { ...subject, chapterCount });
+        }
+      });
+
+      // Hide subjects with no chapters so users don't see unusable cards.
+      const filteredSubjects = Array.from(dedupedByName.values()).filter(
+        (subject) => subject.chapterCount > 0,
+      );
+
+      setSubjects(filteredSubjects);
       setLoading(false);
     };
 

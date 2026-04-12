@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { ArrowRight, BookOpen, Brain, Trophy, Users, Sparkles, GraduationCap } from "lucide-react";
+import { ArrowRight, BookOpen, Brain, Trophy, Users, GraduationCap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 
@@ -38,7 +38,6 @@ const Hero = () => {
             transition={{ duration: 0.5 }}
           >
             <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 text-primary text-sm font-medium">
-              <Sparkles className="w-4 h-4" />
               Your Learning Journey Starts Here
             </span>
           </motion.div>

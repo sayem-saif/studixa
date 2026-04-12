@@ -1,7 +1,20 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { GraduationCap, BarChart3, Award, Bell, Code2, LogOut, Gift, Briefcase, ArrowLeft, Brain, FileText, Github } from "lucide-react";
+import {
+  GraduationCap,
+  BarChart3,
+  Award,
+  Bell,
+  Code2,
+  LogOut,
+  Briefcase,
+  Brain,
+  FileText,
+  Github,
+  Clock,
+  CheckCircle2,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -13,8 +26,349 @@ import InternshipApplication from "@/components/college/InternshipApplication";
 import AIMentor from "@/components/college/AIMentor";
 import DocumentSummarizer from "@/components/college/DocumentSummarizer";
 import ProjectTracker from "@/components/college/ProjectTracker";
+import {
+  ResponsiveContainer,
+  AreaChart,
+  Area,
+  BarChart,
+  Bar,
+  CartesianGrid,
+  XAxis,
+  YAxis,
+  Tooltip,
+} from "recharts";
 
 type ActiveSection = "dashboard" | "cgpa" | "certificates" | "notifications" | "skills" | "internship" | "ai-mentor" | "summarizer" | "projects";
+
+interface OverviewStats {
+  semestersLogged: number;
+  currentCgpa: number;
+  certificatesCount: number;
+  skillsCompleted: number;
+  internshipReadyCourses: number;
+}
+
+interface ChartPoint {
+  label: string;
+  value: number;
+}
+
+interface SkillProgressRow {
+  id: string;
+  name: string;
+  progress: number;
+  completed: boolean;
+}
+
+const EmptyChartState = ({ message }: { message: string }) => (
+  <div className="h-[280px] flex items-center justify-center rounded-xl border border-dashed border-border bg-muted/20">
+    <p className="text-sm text-muted-foreground text-center px-4">{message}</p>
+  </div>
+);
+
+const CollegeOverview = ({ userId }: { userId: string }) => {
+  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState<OverviewStats>({
+    semestersLogged: 0,
+    currentCgpa: 0,
+    certificatesCount: 0,
+    skillsCompleted: 0,
+    internshipReadyCourses: 0,
+  });
+  const [cgpaTrend, setCgpaTrend] = useState<ChartPoint[]>([]);
+  const [dailyLearning, setDailyLearning] = useState<ChartPoint[]>([]);
+  const [skillProgress, setSkillProgress] = useState<SkillProgressRow[]>([]);
+
+  useEffect(() => {
+    const fetchOverview = async () => {
+      setLoading(true);
+
+      const { data: cgpaRecords } = await supabase
+        .from("cgpa_records")
+        .select("semester, sgpa, credits, created_at")
+        .eq("user_id", userId)
+        .order("semester", { ascending: true });
+
+      const { data: certificates } = await supabase
+        .from("certificates")
+        .select("id")
+        .eq("user_id", userId);
+
+      const { data: skillCertificates } = await supabase
+        .from("skill_certificates")
+        .select("id")
+        .eq("user_id", userId);
+
+      const { data: courseCatalog } = await supabase
+        .from("skills_courses")
+        .select("id, name");
+
+      const { data: skillProgressRows } = await supabase
+        .from("user_skills_progress")
+        .select("course_id, progress, completed, eligible_for_internship")
+        .eq("user_id", userId);
+
+      const { data: watchedVideos } = await supabase
+        .from("skill_watched_videos")
+        .select("watched_at")
+        .eq("user_id", userId)
+        .order("watched_at", { ascending: false });
+
+      const cgpaList = cgpaRecords || [];
+      const certCount = (certificates?.length || 0) + (skillCertificates?.length || 0);
+      const rawSkillsList = skillProgressRows || [];
+      const dedupSkillsByCourseId = new Map<string, typeof rawSkillsList[number]>();
+
+      rawSkillsList.forEach((row) => {
+        const existing = dedupSkillsByCourseId.get(row.course_id);
+        if (!existing) {
+          dedupSkillsByCourseId.set(row.course_id, row);
+          return;
+        }
+
+        const existingProgress = existing.progress || 0;
+        const incomingProgress = row.progress || 0;
+        if (incomingProgress >= existingProgress) {
+          dedupSkillsByCourseId.set(row.course_id, {
+            ...row,
+            completed: row.completed || existing.completed,
+            eligible_for_internship: row.eligible_for_internship || existing.eligible_for_internship,
+          });
+        } else {
+          dedupSkillsByCourseId.set(row.course_id, {
+            ...existing,
+            completed: row.completed || existing.completed,
+            eligible_for_internship: row.eligible_for_internship || existing.eligible_for_internship,
+          });
+        }
+      });
+
+      const skillsList = Array.from(dedupSkillsByCourseId.values());
+
+      const totalCredits = cgpaList.reduce((sum, row) => sum + (row.credits || 0), 0);
+      const weightedPoints = cgpaList.reduce((sum, row) => sum + (row.sgpa * (row.credits || 0)), 0);
+      const unweightedAvg = cgpaList.length > 0 ? cgpaList.reduce((sum, row) => sum + row.sgpa, 0) / cgpaList.length : 0;
+      const currentCgpa = totalCredits > 0 ? weightedPoints / totalCredits : unweightedAvg;
+
+      const completedSkills = skillsList.filter((row) => row.completed).length;
+      const internshipReady = skillsList.filter((row) => row.eligible_for_internship).length;
+
+      setStats({
+        semestersLogged: cgpaList.length,
+        currentCgpa: Number(currentCgpa.toFixed(2)),
+        certificatesCount: certCount,
+        skillsCompleted: completedSkills,
+        internshipReadyCourses: internshipReady,
+      });
+
+      setCgpaTrend(
+        cgpaList.map((row) => ({
+          label: `Sem ${row.semester}`,
+          value: row.sgpa,
+        })),
+      );
+
+      const now = new Date();
+      const byDay: Record<string, number> = {};
+      const labelRows: Array<{ key: string; label: string }> = [];
+
+      for (let i = 6; i >= 0; i -= 1) {
+        const d = new Date(now);
+        d.setDate(now.getDate() - i);
+        const key = d.toISOString().slice(0, 10);
+        byDay[key] = 0;
+        labelRows.push({
+          key,
+          label: d.toLocaleDateString(undefined, { weekday: "short" }),
+        });
+      }
+
+      (watchedVideos || []).forEach((row) => {
+        const key = new Date(row.watched_at).toISOString().slice(0, 10);
+        if (key in byDay) byDay[key] += 1;
+      });
+
+      setDailyLearning(
+        labelRows.map((row) => ({
+          label: row.label,
+          value: byDay[row.key] || 0,
+        })),
+      );
+
+      const courseNameById: Record<string, string> = {};
+      (courseCatalog || []).forEach((course) => {
+        courseNameById[course.id] = course.name;
+      });
+
+      setSkillProgress(
+        skillsList
+          .map((row) => ({
+            id: row.course_id,
+            name: courseNameById[row.course_id] || "Course",
+            progress: Math.max(0, Math.min(100, row.progress || 0)),
+            completed: !!row.completed,
+          }))
+          .sort((a, b) => b.progress - a.progress),
+      );
+
+      setLoading(false);
+    };
+
+    if (userId) fetchOverview();
+  }, [userId]);
+
+  if (loading) {
+    return (
+      <div className="rounded-2xl border border-border bg-card p-10 text-center text-muted-foreground">
+        Loading your dashboard data...
+      </div>
+    );
+  }
+
+  const hasData = stats.semestersLogged > 0 || stats.certificatesCount > 0 || stats.skillsCompleted > 0 || dailyLearning.some((d) => d.value > 0);
+  const topSkills = skillProgress.slice(0, 3);
+  const focusSkills = skillProgress.filter((item) => item.progress < 60).slice(0, 3);
+
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-2 xl:grid-cols-5 gap-4">
+        <div className="rounded-xl border border-border bg-card p-4">
+          <p className="text-xs text-muted-foreground mb-1">Semesters Logged</p>
+          <p className="text-2xl font-bold">{stats.semestersLogged}</p>
+        </div>
+        <div className="rounded-xl border border-border bg-card p-4">
+          <p className="text-xs text-muted-foreground mb-1">Current CGPA</p>
+          <p className="text-2xl font-bold">{stats.semestersLogged > 0 ? stats.currentCgpa : "No data"}</p>
+        </div>
+        <div className="rounded-xl border border-border bg-card p-4">
+          <p className="text-xs text-muted-foreground mb-1">Certificates</p>
+          <p className="text-2xl font-bold">{stats.certificatesCount}</p>
+        </div>
+        <div className="rounded-xl border border-border bg-card p-4">
+          <p className="text-xs text-muted-foreground mb-1">Skills Completed</p>
+          <p className="text-2xl font-bold">{stats.skillsCompleted}</p>
+        </div>
+        <div className="rounded-xl border border-border bg-card p-4 col-span-2 xl:col-span-1">
+          <p className="text-xs text-muted-foreground mb-1">Internship Ready</p>
+          <p className="text-2xl font-bold">{stats.internshipReadyCourses}</p>
+        </div>
+      </div>
+
+      {!hasData && (
+        <div className="rounded-xl border border-border bg-card p-5 text-sm text-muted-foreground">
+          You have not logged CGPA, completed skills, or added certificates yet. Once you start, your growth charts and dashboard analytics will appear here.
+        </div>
+      )}
+
+      <div className="grid xl:grid-cols-2 gap-6">
+        <div className="rounded-2xl border border-border bg-card p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <BarChart3 className="w-4 h-4 text-primary" />
+            <h3 className="font-semibold">CGPA / SGPA Trend</h3>
+          </div>
+          {cgpaTrend.length === 0 ? (
+            <EmptyChartState message="No CGPA records yet. Add semester SGPA to see your growth." />
+          ) : (
+            <div className="h-[280px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={cgpaTrend}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis dataKey="label" />
+                  <YAxis domain={[0, 10]} />
+                  <Tooltip />
+                  <Area type="monotone" dataKey="value" stroke="hsl(var(--primary))" fill="hsl(var(--primary) / 0.2)" />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+        </div>
+
+        <div className="rounded-2xl border border-border bg-card p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <Clock className="w-4 h-4 text-primary" />
+            <h3 className="font-semibold">Daily Learning Activity</h3>
+          </div>
+          {dailyLearning.every((d) => d.value === 0) ? (
+            <EmptyChartState message="No learning activity yet. Watch course videos to see daily trend." />
+          ) : (
+            <div className="h-[280px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={dailyLearning}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis dataKey="label" />
+                  <YAxis allowDecimals={false} />
+                  <Tooltip />
+                  <Bar dataKey="value" fill="hsl(var(--primary))" radius={[6, 6, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="rounded-2xl border border-border bg-card p-5">
+        <div className="flex items-center gap-2 mb-4">
+          <CheckCircle2 className="w-4 h-4 text-primary" />
+          <h3 className="font-semibold">Skill Progress</h3>
+        </div>
+
+        {skillProgress.length === 0 ? (
+          <div className="text-sm text-muted-foreground py-6 text-center">
+            No skill progress yet. Start courses to track completion.
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {skillProgress.map((item) => (
+              <div key={item.id}>
+                <div className="flex items-center justify-between text-sm mb-1">
+                  <span className="font-medium">{item.name}</span>
+                  <span className="text-muted-foreground">{item.progress}% {item.completed ? "(Completed)" : ""}</span>
+                </div>
+                <div className="h-2 rounded-full bg-secondary overflow-hidden">
+                  <div className="h-full bg-primary" style={{ width: `${item.progress}%` }} />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="grid xl:grid-cols-2 gap-6">
+        <div className="rounded-2xl border border-border bg-card p-5">
+          <h3 className="font-semibold mb-3">Top Skills</h3>
+          {topSkills.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No skill progress yet.</p>
+          ) : (
+            <div className="space-y-3">
+              {topSkills.map((item) => (
+                <div key={`top-${item.id}`} className="flex items-center justify-between text-sm">
+                  <span className="font-medium">{item.name}</span>
+                  <span className="text-success">{item.progress}%</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="rounded-2xl border border-border bg-card p-5">
+          <h3 className="font-semibold mb-3">Focus Next</h3>
+          {focusSkills.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Great work. No low-progress skills right now.</p>
+          ) : (
+            <div className="space-y-3">
+              {focusSkills.map((item) => (
+                <div key={`focus-${item.id}`} className="flex items-center justify-between text-sm">
+                  <span className="font-medium">{item.name}</span>
+                  <span className="text-warning">{item.progress}%</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
 
 const CollegeDashboard = () => {
   const [profile, setProfile] = useState<any>(null);
@@ -41,14 +395,16 @@ const CollegeDashboard = () => {
     toast.success("Logged out successfully");
   };
 
-  const features = [
-    { id: "cgpa" as const, title: "CGPA Tracker", desc: "Log and track your semester grades", icon: BarChart3 },
-    { id: "certificates" as const, title: "Certificate Tracker", desc: "Store all your certificates", icon: Award },
-    { id: "notifications" as const, title: "Notifications", desc: "Events, hackathons & internships", icon: Bell },
-    { id: "skills" as const, title: "Skill Courses", desc: "Learn C, Python, Java & Web Dev", icon: Code2 },
-    { id: "ai-mentor" as const, title: "AI Mentor", desc: "Get career & tech guidance", icon: Brain },
-    { id: "summarizer" as const, title: "Document Summarizer", desc: "Summarize PDFs & study materials", icon: FileText },
-    { id: "projects" as const, title: "Project Tracker", desc: "Track your GitHub projects", icon: Github },
+  const sections = [
+    { id: "dashboard" as const, label: "Dashboard", icon: BarChart3 },
+    { id: "cgpa" as const, label: "CGPA", icon: BarChart3 },
+    { id: "certificates" as const, label: "Certificates", icon: Award },
+    { id: "skills" as const, label: "Skills", icon: Code2 },
+    { id: "projects" as const, label: "Projects", icon: Github },
+    { id: "internship" as const, label: "Internship", icon: Briefcase },
+    { id: "ai-mentor" as const, label: "AI Mentor", icon: Brain },
+    { id: "summarizer" as const, label: "Summarizer", icon: FileText },
+    { id: "notifications" as const, label: "Notifications", icon: Bell },
   ];
 
   if (loading) return (
@@ -59,6 +415,8 @@ const CollegeDashboard = () => {
 
   const renderContent = () => {
     switch (activeSection) {
+      case "dashboard":
+        return <CollegeOverview userId={profile.user_id} />;
       case "cgpa":
         return <CGPATracker userId={profile.user_id} />;
       case "certificates":
@@ -82,179 +440,79 @@ const CollegeDashboard = () => {
       case "projects":
         return <ProjectTracker userId={profile.user_id} />;
       default:
-        return null;
+        return <CollegeOverview userId={profile.user_id} />;
     }
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="sticky top-0 z-50 border-b border-border bg-card/95 backdrop-blur">
-        <div className="container flex items-center justify-between h-16 px-4">
-          <div className="flex items-center gap-3">
-            {activeSection !== "dashboard" && (
-              <Button variant="ghost" size="icon" onClick={() => setActiveSection("dashboard")}>
-                <ArrowLeft className="w-5 h-5" />
-              </Button>
-            )}
-            <div className="p-2 rounded-xl bg-gradient-primary">
-              <GraduationCap className="w-5 h-5 text-primary-foreground" />
-            </div>
-            <div>
-              <h1 className="font-display text-lg font-bold">Studixa</h1>
-              <p className="text-xs text-muted-foreground">{profile?.college_course} • {profile?.college_branch}</p>
-            </div>
+    <div className="min-h-screen bg-surface">
+      <aside className="hidden md:flex fixed left-0 top-0 h-screen w-64 bg-card border-r border-border flex-col">
+        <div className="h-16 px-4 border-b border-border flex items-center gap-3">
+          <div className="p-2 rounded-xl bg-gradient-primary">
+            <GraduationCap className="w-5 h-5 text-primary-foreground" />
           </div>
-          <div className="flex items-center gap-3">
-            <span className="flex items-center gap-1 px-3 py-1 rounded-full bg-gradient-premium text-premium-foreground text-xs font-medium">
-              <Gift className="w-3 h-3" />
-              Premium Free!
-            </span>
-            <Button variant="ghost" size="icon" onClick={handleLogout}>
-              <LogOut className="w-5 h-5" />
-            </Button>
+          <div>
+            <h1 className="font-semibold">Studixa</h1>
+            <p className="text-xs text-muted-foreground">College Dashboard</p>
           </div>
         </div>
-      </header>
 
-      {/* Opening Sale Banner */}
-      <motion.div 
-        className="bg-gradient-to-r from-premium via-accent to-premium text-premium-foreground"
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-      >
-        <div className="container px-4 py-3 flex items-center justify-center gap-3 text-center">
-          <Gift className="w-5 h-5 animate-pulse" />
-          <span className="font-semibold">🎉 Opening Sale! All Premium Features are FREE for a limited time!</span>
-          <Gift className="w-5 h-5 animate-pulse" />
+        <nav className="p-3 space-y-2 overflow-y-auto">
+          {sections.map((section) => (
+            <button
+              key={section.id}
+              onClick={() => setActiveSection(section.id)}
+              className={`w-full text-left px-3 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors ${
+                activeSection === section.id
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+              }`}
+            >
+              <section.icon className="w-4 h-4" />
+              {section.label}
+            </button>
+          ))}
+        </nav>
+
+        <div className="mt-auto p-3 border-t border-border">
+          <Button variant="outline" className="w-full" onClick={handleLogout}>
+            <LogOut className="w-4 h-4 mr-2" />
+            Logout
+          </Button>
         </div>
-      </motion.div>
+      </aside>
 
-      <div className="container px-4 py-6">
-        {activeSection === "dashboard" ? (
-          <>
-            <motion.div 
-              className="mb-8 p-6 rounded-2xl bg-gradient-primary text-primary-foreground" 
-              initial={{ opacity: 0, y: 20 }} 
-              animate={{ opacity: 1, y: 0 }}
-            >
-              <h2 className="font-display text-2xl font-bold mb-1">Welcome, {profile?.full_name || "Student"}! 🎓</h2>
-              <p className="text-primary-foreground/80">Build your skills and advance your career</p>
-            </motion.div>
+      <main className="md:ml-64 min-h-screen">
+        <header className="sticky top-0 z-30 h-16 border-b border-border bg-background/95 backdrop-blur px-4 md:px-6 flex items-center justify-between">
+          <div>
+            <h2 className="font-semibold">Welcome, {profile?.full_name || "Student"}</h2>
+            <p className="text-xs text-muted-foreground">{profile?.college_course} {profile?.college_branch ? `• ${profile.college_branch}` : ""}</p>
+          </div>
+        </header>
 
-            {/* Feature Cards */}
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
-              {features.map((f, i) => (
-                <motion.button
-                  key={i}
-                  className="p-5 rounded-xl bg-card border border-border relative overflow-hidden text-left hover:border-primary/50 transition-colors"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: i * 0.1 }}
-                  onClick={() => setActiveSection(f.id)}
-                >
-                  <div className="absolute top-0 right-0 px-2 py-1 bg-success text-success-foreground text-xs font-medium rounded-bl-lg">
-                    Free!
-                  </div>
-                  <div className="p-3 rounded-xl bg-primary/10 inline-flex mb-3">
-                    <f.icon className="w-6 h-6 text-primary" />
-                  </div>
-                  <h3 className="font-semibold mb-1">{f.title}</h3>
-                  <p className="text-sm text-muted-foreground">{f.desc}</p>
-                </motion.button>
-              ))}
-            </div>
-
-            {/* Internship Application Card */}
-            <motion.button
-              className="w-full p-6 rounded-2xl bg-gradient-to-br from-indigo-500/20 to-purple-500/20 border border-indigo-500/30 text-left hover:border-indigo-500/50 transition-colors mb-6"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.4 }}
-              onClick={() => setActiveSection("internship")}
-            >
-              <div className="flex items-center gap-4">
-                <div className="p-4 rounded-xl bg-indigo-500/20">
-                  <Briefcase className="w-8 h-8 text-indigo-400" />
-                </div>
-                <div>
-                  <h3 className="text-xl font-bold mb-1">Apply for Internship</h3>
-                  <p className="text-muted-foreground">
-                    Complete your skill courses and apply for internship opportunities
-                  </p>
-                </div>
-              </div>
-            </motion.button>
-
-            {/* Quick Stats */}
-            <div className="grid lg:grid-cols-2 gap-6">
-              <motion.div 
-                className="p-6 rounded-2xl bg-card border border-border" 
-                initial={{ opacity: 0 }} 
-                animate={{ opacity: 1 }} 
-                transition={{ delay: 0.5 }}
+        <div className="p-4 md:p-6">
+          <div className="md:hidden mb-4 grid grid-cols-2 gap-2">
+            {sections.map((section) => (
+              <button
+                key={section.id}
+                onClick={() => setActiveSection(section.id)}
+                className={`px-3 py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2 ${
+                  activeSection === section.id
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-card border border-border text-muted-foreground"
+                }`}
               >
-                <h3 className="font-display text-xl font-bold mb-4">Quick Actions</h3>
-                <div className="space-y-3">
-                  <Button 
-                    className="w-full justify-start" 
-                    variant="outline"
-                    onClick={() => setActiveSection("cgpa")}
-                  >
-                    <BarChart3 className="w-4 h-4 mr-2" />
-                    Track your CGPA
-                  </Button>
-                  <Button 
-                    className="w-full justify-start" 
-                    variant="outline"
-                    onClick={() => setActiveSection("certificates")}
-                  >
-                    <Award className="w-4 h-4 mr-2" />
-                    Add a Certificate
-                  </Button>
-                  <Button 
-                    className="w-full justify-start" 
-                    variant="outline"
-                    onClick={() => setActiveSection("skills")}
-                  >
-                    <Code2 className="w-4 h-4 mr-2" />
-                    Start Learning
-                  </Button>
-                </div>
-              </motion.div>
+                <section.icon className="w-4 h-4" />
+                {section.label}
+              </button>
+            ))}
+          </div>
 
-              <motion.div 
-                className="p-6 rounded-2xl bg-card border border-border" 
-                initial={{ opacity: 0 }} 
-                animate={{ opacity: 1 }} 
-                transition={{ delay: 0.6 }}
-              >
-                <h3 className="font-display text-xl font-bold mb-4">Available Courses</h3>
-                <div className="space-y-3">
-                  {["C Programming", "Python", "Java", "HTML & CSS"].map((course, i) => (
-                    <div key={i} className="p-4 rounded-xl bg-secondary/50 flex items-center justify-between">
-                      <span className="font-medium">{course}</span>
-                      <Button 
-                        size="sm" 
-                        variant="outline"
-                        onClick={() => setActiveSection("skills")}
-                      >
-                        Start Learning
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              </motion.div>
-            </div>
-          </>
-        ) : (
-          <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-          >
+          <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }}>
             {renderContent()}
           </motion.div>
-        )}
-      </div>
+        </div>
+      </main>
     </div>
   );
 };

@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Brain, Send, User, Sparkles, Crown, Loader2, RotateCcw } from "lucide-react";
+import { Brain, Send, User, Loader2, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
@@ -24,13 +24,13 @@ const AIMentor = ({ profile }: AIMentorProps) => {
       setMessages([{
         id: "welcome",
         role: "assistant",
-        content: `Hello! 👋 I'm your **AI Career Mentor**. I can help you with:
+        content: `Hello! I'm your **AI Career Mentor**. I can help you with:
 
-💼 **Career Guidance** - Explore career paths and opportunities
-📚 **Technical Concepts** - Explain programming and tech topics
-🎯 **Interview Prep** - Tips for technical interviews
-💻 **Project Ideas** - Suggestions for portfolio projects
-📝 **Resume Tips** - Improve your resume and LinkedIn profile
+      1. **Career Guidance** - Explore career paths and opportunities
+      2. **Technical Concepts** - Explain programming and tech topics
+      3. **Interview Prep** - Tips for technical interviews
+      4. **Project Ideas** - Suggestions for portfolio projects
+      5. **Resume Tips** - Improve your resume and LinkedIn profile
 
 I specialize in ${profile?.college_branch || "Computer Science"} and can help you grow your skills. What would you like to know?`,
         timestamp: new Date(),
@@ -70,13 +70,13 @@ I specialize in ${profile?.college_branch || "Computer Science"} and can help yo
     setMessages([{
       id: "welcome",
       role: "assistant",
-      content: `Hello! 👋 I'm your **AI Career Mentor**. I can help you with:
+      content: `Hello! I'm your **AI Career Mentor**. I can help you with:
 
-💼 **Career Guidance** - Explore career paths and opportunities
-📚 **Technical Concepts** - Explain programming and tech topics
-🎯 **Interview Prep** - Tips for technical interviews
-💻 **Project Ideas** - Suggestions for portfolio projects
-📝 **Resume Tips** - Improve your resume and LinkedIn profile
+    1. **Career Guidance** - Explore career paths and opportunities
+    2. **Technical Concepts** - Explain programming and tech topics
+    3. **Interview Prep** - Tips for technical interviews
+    4. **Project Ideas** - Suggestions for portfolio projects
+    5. **Resume Tips** - Improve your resume and LinkedIn profile
 
 I specialize in ${profile?.college_branch || "Computer Science"} and can help you grow your skills. What would you like to know?`,
       timestamp: new Date(),
@@ -101,7 +101,7 @@ I specialize in ${profile?.college_branch || "Computer Science"} and can help yo
         >
           <div className="flex items-center gap-2 mb-2">
             {isAi ? (
-              <Sparkles className="w-4 h-4" />
+              <Brain className="w-4 h-4" />
             ) : (
               <User className="w-4 h-4" />
             )}
@@ -132,12 +132,6 @@ I specialize in ${profile?.college_branch || "Computer Science"} and can help yo
               if (/^\d+\./.test(line.trim())) {
                 return (
                   <li key={i} className="ml-4 mb-1">{line.trim().replace(/^\d+\.\s*/, '')}</li>
-                );
-              }
-              // Handle emoji headers
-              if (line.trim().match(/^[📚❓📝🎯💼💻📊🔥✨]/)) {
-                return (
-                  <p key={i} className="font-semibold mb-2 mt-3">{line}</p>
                 );
               }
               // Regular text

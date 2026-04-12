@@ -41,7 +41,7 @@ const courses: Course[] = [
   {
     id: "c",
     name: "C Programming",
-    icon: "🔵",
+    icon: "C",
     color: "from-blue-500 to-blue-600",
     videos: [
       { title: "C Programming Full Course (Part 1)", url: "https://youtu.be/irqbmMNs2Bo?si=qG2Gc95DKIE8bZpG" },
@@ -52,7 +52,7 @@ const courses: Course[] = [
   {
     id: "python",
     name: "Python Programming",
-    icon: "🐍",
+    icon: "PY",
     color: "from-green-500 to-emerald-600",
     videos: [
       { title: "Python Full Course (Part 1)", url: "https://youtu.be/UrsmFxEIp5k?si=flDZ4iyQU4Gw31AX" },
@@ -62,7 +62,7 @@ const courses: Course[] = [
   {
     id: "java",
     name: "Java Programming",
-    icon: "☕",
+    icon: "JV",
     color: "from-orange-500 to-red-600",
     videos: [
       { title: "Java Full Course (Part 1)", url: "https://youtu.be/xTtL8E4LzTQ?si=mGCRwnWcmkoKO69I" },
@@ -73,7 +73,7 @@ const courses: Course[] = [
   {
     id: "html-css",
     name: "HTML & CSS",
-    icon: "🌐",
+    icon: "WEB",
     color: "from-pink-500 to-purple-600",
     videos: [
       { title: "HTML & CSS Full Course (Part 1)", url: "https://youtu.be/HGTJBPNC-Gw?si=03EWuEzlzyh9w_ZC" },
@@ -421,7 +421,7 @@ const SkillCourses = ({ userId }: SkillCoursesProps) => {
       pdf.setTextColor(26, 54, 93);
       pdf.setFontSize(12);
       pdf.setFont("helvetica", "bold");
-      pdf.text("✓", pageWidth / 2, 37, { align: "center" });
+      pdf.text("CERTIFICATE", pageWidth / 2, 37, { align: "center" });
 
       // Title
       pdf.setTextColor(26, 54, 93);

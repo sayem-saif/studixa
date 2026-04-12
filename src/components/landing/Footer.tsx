@@ -56,7 +56,7 @@ const Footer = () => {
         </div>
 
         <div className="mt-12 pt-8 border-t border-border text-center text-sm text-muted-foreground">
-          <p>© {new Date().getFullYear()} Studixa. All rights reserved. Made with ❤️ by Sayem & Himasri</p>
+          <p>© {new Date().getFullYear()} Studixa. All rights reserved. Made by Sayem</p>
         </div>
       </div>
     </footer>

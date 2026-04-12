@@ -58,12 +58,12 @@ const Pricing = () => {
           viewport={{ once: true }}
           transition={{ duration: 0.5 }}
         >
-          <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-premium/10 text-premium text-sm font-medium">
+          <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-amber-100 text-amber-700 text-sm font-medium">
             <Crown className="w-4 h-4" />
             Simple Pricing
           </span>
           <h2 className="font-display text-3xl md:text-5xl font-bold">
-            Choose Your <span className="text-gradient">Plan</span>
+            Choose Your <span className="text-primary">Plan</span>
           </h2>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
             Start free and upgrade when you're ready to unlock premium features.
@@ -85,7 +85,7 @@ const Pricing = () => {
               transition={{ duration: 0.5, delay: index * 0.2 }}
             >
               {plan.popular && (
-                <div className="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full bg-gradient-premium text-premium-foreground text-sm font-medium flex items-center gap-1">
+                <div className="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full bg-amber-500 text-white text-sm font-medium flex items-center gap-1">
                   <Sparkles className="w-3 h-3" />
                   Most Popular
                 </div>
@@ -95,7 +95,7 @@ const Pricing = () => {
                 <h3 className="font-display text-2xl font-bold mb-2">{plan.name}</h3>
                 <p className="text-muted-foreground text-sm mb-4">{plan.description}</p>
                 <div className="flex items-baseline justify-center gap-1">
-                  <span className={`text-4xl font-bold ${plan.popular ? "text-premium" : "text-foreground"}`}>
+                  <span className={`text-4xl font-bold ${plan.popular ? "text-amber-600" : "text-foreground"}`}>
                     {plan.price}
                   </span>
                   {plan.period && (
@@ -107,8 +107,8 @@ const Pricing = () => {
               <div className="space-y-3 mb-8">
                 {plan.features.map((feature, i) => (
                   <div key={i} className="flex items-center gap-3">
-                    <div className={`p-1 rounded-full ${plan.popular ? "bg-premium/20" : "bg-success/20"}`}>
-                      <Check className={`w-3 h-3 ${plan.popular ? "text-premium" : "text-success"}`} />
+                    <div className={`p-1 rounded-full ${plan.popular ? "bg-amber-100" : "bg-success/20"}`}>
+                      <Check className={`w-3 h-3 ${plan.popular ? "text-amber-600" : "text-success"}`} />
                     </div>
                     <span className="text-sm">{feature}</span>
                   </div>
@@ -127,7 +127,7 @@ const Pricing = () => {
                 asChild 
                 variant={plan.popular ? "premium" : "outline"} 
                 size="lg" 
-                className="w-full"
+                className={`w-full ${plan.popular ? "text-white" : "text-foreground"}`}
               >
                 <Link to="/auth">
                   {plan.cta}

@@ -281,7 +281,7 @@ const ProjectTracker = ({ userId }: ProjectTrackerProps) => {
         transition={{ delay: 0.3 }}
       >
         <p className="text-sm text-foreground">
-          💡 <strong>Tip:</strong> Your projects are saved to your profile and can be viewed by recruiters and potential employers.
+          <strong>Tip:</strong> Your projects are saved to your profile and can be viewed by recruiters and potential employers.
         </p>
       </motion.div>
     </div>

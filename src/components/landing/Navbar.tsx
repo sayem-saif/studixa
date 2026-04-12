@@ -37,10 +37,8 @@ const Navbar = () => {
 
   return (
     <motion.nav
-      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-        scrolled 
-          ? "py-3 glass-strong shadow-lg" 
-          : "py-5 bg-transparent"
+      className={`fixed top-0 left-0 right-0 z-50 border-b border-border/80 bg-background/95 backdrop-blur transition-all duration-300 ${
+        scrolled ? "py-3 shadow-sm" : "py-4"
       }`}
       initial={{ y: -100 }}
       animate={{ y: 0 }}
@@ -50,10 +48,10 @@ const Navbar = () => {
         <div className="flex items-center justify-between">
           {/* Logo */}
           <Link to="/" className="flex items-center gap-2">
-            <div className="p-2 rounded-xl bg-gradient-primary shadow-glow">
+            <div className="p-2 rounded-xl bg-primary">
               <GraduationCap className="w-6 h-6 text-primary-foreground" />
             </div>
-            <span className="font-display text-xl font-bold">Studixa</span>
+            <span className="text-xl font-bold">Studixa</span>
           </Link>
 
           {/* Desktop nav */}
@@ -103,7 +101,7 @@ const Navbar = () => {
         <AnimatePresence>
           {isOpen && (
             <motion.div
-              className="md:hidden mt-4 p-4 rounded-2xl glass-strong"
+              className="md:hidden mt-4 p-4 rounded-2xl border border-border bg-card shadow-sm"
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: "auto" }}
               exit={{ opacity: 0, height: 0 }}

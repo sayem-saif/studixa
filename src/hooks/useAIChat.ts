@@ -1,4 +1,5 @@
 import { useState, useCallback } from "react";
+import { supabase } from "@/integrations/supabase/client";
 
 const AI_MENTOR_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-mentor`;
 
@@ -16,6 +17,17 @@ interface UseAIChatOptions {
 export const useAIChat = (options?: UseAIChatOptions) => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+
+  const getAuthHeaders = useCallback(async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    const accessToken = session?.access_token;
+
+    return {
+      "Content-Type": "application/json",
+      apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+      Authorization: `Bearer ${accessToken || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+    };
+  }, []);
 
   const sendMessage = useCallback(async (userInput: string) => {
     const userMessage: ChatMessage = {
@@ -54,12 +66,11 @@ export const useAIChat = (options?: UseAIChatOptions) => {
         content: m.content
       }));
 
+      const headers = await getAuthHeaders();
+
       const response = await fetch(AI_MENTOR_URL, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-        },
+        headers,
         body: JSON.stringify({ messages: chatMessages }),
       });
 
@@ -94,8 +105,16 @@ export const useAIChat = (options?: UseAIChatOptions) => {
 
           try {
             const parsed = JSON.parse(jsonStr);
-            const content = parsed.choices?.[0]?.delta?.content;
-            if (content) updateAssistant(content);
+            const delta = parsed.choices?.[0]?.delta;
+            const content =
+              delta?.content ??
+              delta?.reasoning ??
+              parsed.choices?.[0]?.message?.content ??
+              "";
+
+            if (typeof content === "string" && content.length > 0) {
+              updateAssistant(content);
+            }
           } catch {
             buffer = line + "\n" + buffer;
             break;
@@ -108,19 +127,18 @@ export const useAIChat = (options?: UseAIChatOptions) => {
     } finally {
       setIsLoading(false);
     }
-  }, [messages, options]);
+  }, [getAuthHeaders, messages, options]);
 
   const summarizeDocument = useCallback(async (content: string): Promise<string> => {
     setIsLoading(true);
     let result = "";
 
     try {
+      const headers = await getAuthHeaders();
+
       const response = await fetch(AI_MENTOR_URL, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-        },
+        headers,
         body: JSON.stringify({ type: "summarize", documentContent: content, messages: [] }),
       });
 
@@ -155,8 +173,16 @@ export const useAIChat = (options?: UseAIChatOptions) => {
 
           try {
             const parsed = JSON.parse(jsonStr);
-            const content = parsed.choices?.[0]?.delta?.content;
-            if (content) result += content;
+            const delta = parsed.choices?.[0]?.delta;
+            const content =
+              delta?.content ??
+              delta?.reasoning ??
+              parsed.choices?.[0]?.message?.content ??
+              "";
+
+            if (typeof content === "string" && content.length > 0) {
+              result += content;
+            }
           } catch {
             buffer = line + "\n" + buffer;
             break;
@@ -172,7 +198,7 @@ export const useAIChat = (options?: UseAIChatOptions) => {
     }
 
     return result;
-  }, [options]);
+  }, [getAuthHeaders, options]);
 
   const clearMessages = useCallback(() => {
     setMessages([]);

@@ -32,6 +32,51 @@ const QuizSection = ({ profile, chapter, onBack, mode = "fullClass" }: QuizSecti
   const [questions, setQuestions] = useState<Question[]>([]);
   const [answers, setAnswers] = useState<{ correct: boolean; question: Question }[]>([]);
   const [loading, setLoading] = useState(false);
+  const [quizStartTime, setQuizStartTime] = useState<number>(0);
+
+  // Log performance data to performance_logs table
+  const logPerformance = async (accuracy: number, userScore: number, totalQuestions: number) => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) return;
+
+      // Get subject ID from chapter
+      let subjectId = chapter?.subject_id;
+      if (!subjectId && chapter?.id) {
+        const { data: chapterData } = await supabase
+          .from("chapters")
+          .select("subject_id")
+          .eq("id", chapter.id)
+          .single();
+        subjectId = chapterData?.subject_id;
+      }
+
+      if (!subjectId) return;
+
+      const timeTakenSeconds = Math.round((Date.now() - quizStartTime) / 1000);
+
+      // Insert performance log
+      const { error } = await supabase.from("performance_logs").insert({
+        user_id: session.user.id,
+        user_type: profile?.user_type || "school",
+        subject_id: subjectId,
+        chapter_id: chapter?.id || null,
+        topic_name: chapter?.name || "General Quiz",
+        accuracy: accuracy,
+        score: userScore,
+        total_questions: totalQuestions,
+        time_taken: timeTakenSeconds,
+        difficulty: "medium", // Can be made dynamic based on question difficulty
+        attempt_number: 1,
+      });
+
+      if (error) {
+        console.error("Error logging performance:", error);
+      }
+    } catch (error) {
+      console.error("Error in logPerformance:", error);
+    }
+  };
 
   const fetchChapterQuestions = async (chapterId: string, limit: number = 10) => {
     const { data, error } = await supabase
@@ -130,6 +175,7 @@ const QuizSection = ({ profile, chapter, onBack, mode = "fullClass" }: QuizSecti
     setScore(0);
     setQuizComplete(false);
     setAnswers([]);
+    setQuizStartTime(Date.now());
     setLoading(false);
   };
 
@@ -154,13 +200,15 @@ const QuizSection = ({ profile, chapter, onBack, mode = "fullClass" }: QuizSecti
       setShowExplanation(false);
     } else {
       setQuizComplete(true);
+      const percentage = Math.round((score / questions.length) * 100);
       
-      // Save quiz score for chapter quiz
+      // Log performance to performance_logs table
+      await logPerformance(percentage, score, questions.length);
+      
+      // Save quiz score for chapter quiz to user_progress (legacy)
       if (mode === "chapter" && chapter) {
         const { data: { session } } = await supabase.auth.getSession();
         if (session?.user) {
-          const percentage = Math.round((score / questions.length) * 100);
-          
           const { data: existing } = await supabase
             .from("user_progress")
             .select("id, quiz_score")
@@ -285,9 +333,9 @@ const QuizSection = ({ profile, chapter, onBack, mode = "fullClass" }: QuizSecti
           <p className={`text-lg font-medium mb-6 ${
             percentage >= 80 ? "text-success" : percentage >= 50 ? "text-warning" : "text-destructive"
           }`}>
-            {percentage >= 80 ? "Excellent! Keep it up! 🎉" : 
-             percentage >= 50 ? "Good job! Room for improvement 💪" : 
-             "Keep practicing! You'll get better 📚"}
+            {percentage >= 80 ? "Excellent! Keep it up!" : 
+             percentage >= 50 ? "Good job! Room for improvement" : 
+             "Keep practicing! You'll get better"}
           </p>
 
           <div className="flex gap-3 justify-center">

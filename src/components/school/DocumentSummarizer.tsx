@@ -226,7 +226,7 @@ const DocumentSummarizer = ({ profile }: DocumentSummarizerProps) => {
         animate={{ opacity: 1 }}
         transition={{ delay: 0.2 }}
       >
-        <h4 className="font-medium text-sm mb-2">💡 Tips for best results:</h4>
+        <h4 className="font-medium text-sm mb-2">Tips for best results:</h4>
         <ul className="text-sm text-muted-foreground space-y-1">
           <li>• Upload clear, text-based documents for accurate summaries</li>
           <li>• NCERT PDFs and class notes work great</li>

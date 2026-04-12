@@ -7,6 +7,7 @@ import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Onboarding from "./pages/Onboarding";
 import SchoolDashboard from "./pages/SchoolDashboard";
+import DashboardPreview from "./pages/DashboardPreview";
 import CollegeDashboard from "./pages/CollegeDashboard";
 import VerifyCertificate from "./pages/VerifyCertificate";
 import NotFound from "./pages/NotFound";
@@ -23,9 +24,11 @@ const App = () => (
           <Route path="/" element={<Index />} />
           <Route path="/auth" element={<Auth />} />
           <Route path="/onboarding" element={<Onboarding />} />
+          <Route path="/dashboard" element={<SchoolDashboard />} />
           <Route path="/school-dashboard" element={<SchoolDashboard />} />
           <Route path="/college-dashboard" element={<CollegeDashboard />} />
           <Route path="/verify/:certificateNumber" element={<VerifyCertificate />} />
+          <Route path="/preview" element={<DashboardPreview />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>

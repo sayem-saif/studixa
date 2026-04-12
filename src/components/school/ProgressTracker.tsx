@@ -270,7 +270,7 @@ const ProgressTracker = ({ profile }: ProgressTrackerProps) => {
           </div>
           <div className="flex-1">
             <h3 className="font-semibold mb-1 flex items-center gap-2">
-              🎉 Opening Sale Active!
+              Opening Sale Active!
             </h3>
             <p className="text-sm text-muted-foreground">
               All premium analytics features are unlocked for free! Enjoy detailed insights, weakness analysis, and AI-powered recommendations.
@@ -287,7 +287,7 @@ const ProgressTracker = ({ profile }: ProgressTrackerProps) => {
           animate={{ opacity: 1, x: 0 }}
           transition={{ delay: 0.5 }}
         >
-          <h4 className="font-semibold text-success mb-4">💪 Your Strengths</h4>
+          <h4 className="font-semibold text-success mb-4">Your Strengths</h4>
           <ul className="space-y-2 text-sm">
             <li className="flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-success" />
@@ -310,7 +310,7 @@ const ProgressTracker = ({ profile }: ProgressTrackerProps) => {
           animate={{ opacity: 1, x: 0 }}
           transition={{ delay: 0.6 }}
         >
-          <h4 className="font-semibold text-warning mb-4">📚 Areas to Improve</h4>
+          <h4 className="font-semibold text-warning mb-4">Areas to Improve</h4>
           <ul className="space-y-2 text-sm">
             <li className="flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-warning" />

@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Brain, Send, User, Sparkles, Crown, Loader2, RotateCcw } from "lucide-react";
+import { Brain, Send, User, Crown, Loader2, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
@@ -16,26 +16,68 @@ const AIMentor = ({ profile }: AIMentorProps) => {
     onError: (error) => toast.error(error),
   });
   const [input, setInput] = useState("");
+  const [weakTopics, setWeakTopics] = useState<any[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Set welcome message on mount
+  // Fetch weak topics from performance data
+  useEffect(() => {
+    const fetchWeakTopics = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.user) return;
+
+        // Fetch performance logs
+        const { data: logs } = await supabase
+          .from("performance_logs")
+          .select("*")
+          .eq("user_id", session.user.id)
+          .eq("performance_level", "weak")
+          .order("created_at", { ascending: false })
+          .limit(10);
+
+        if (logs && logs.length > 0) {
+          const topics = [...new Set(logs.map(log => log.topic_name))];
+          setWeakTopics(topics.filter(Boolean) as string[]);
+        }
+      } catch (error) {
+        console.error("Error fetching weak topics:", error);
+      }
+    };
+
+    fetchWeakTopics();
+  }, [profile]);
+
+  // Set welcome message on mount with performance context
   useEffect(() => {
     if (messages.length === 0) {
+      let welcomeMessage = `Hello! I'm your **AI Study Mentor**. I can help you with:
+
+    1. **Study Planning** - Create personalized study schedules
+    2. **Doubt Solving** - Explain concepts from your subjects
+    3. **Exam Preparation** - Tips and strategies for better scores
+    4. **Quick Summaries** - Get key points of any topic
+
+I'm trained on NCERT curriculum for Class ${profile?.school_class || "9-12"}.`;
+
+      // Add performance-aware guidance
+      if (weakTopics.length > 0) {
+        welcomeMessage += `\n\n**Based on your recent performance, I noticed you're struggling with:**\n`;
+        weakTopics.slice(0, 3).forEach(topic => {
+          welcomeMessage += `• ${topic}\n`;
+        });
+        welcomeMessage += `\nLet me help you master these topics!`;
+      } else {
+        welcomeMessage += `\n\nWhat would you like to learn today?`;
+      }
+
       setMessages([{
         id: "welcome",
         role: "assistant",
-        content: `Hello! 👋 I'm your **AI Study Mentor**. I can help you with:
-
-📚 **Study Planning** - Create personalized study schedules
-❓ **Doubt Solving** - Explain concepts from your subjects
-📝 **Exam Preparation** - Tips and strategies for better scores
-🎯 **Quick Summaries** - Get key points of any topic
-
-I'm trained on NCERT curriculum for Class ${profile?.school_class || "9-12"}. What would you like to learn today?`,
+        content: welcomeMessage,
         timestamp: new Date(),
       }]);
     }
-  }, [profile?.school_class, messages.length, setMessages]);
+  }, [profile?.school_class, weakTopics, messages.length, setMessages]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -66,23 +108,178 @@ I'm trained on NCERT curriculum for Class ${profile?.school_class || "9-12"}. Wh
 
   const handleNewChat = () => {
     clearMessages();
+    
+    let welcomeMessage = `Hello! I'm your **AI Study Mentor**. I can help you with:
+
+  1. **Study Planning** - Create personalized study schedules
+  2. **Doubt Solving** - Explain concepts from your subjects
+  3. **Exam Preparation** - Tips and strategies for better scores
+  4. **Quick Summaries** - Get key points of any topic
+
+I'm trained on NCERT curriculum for Class ${profile?.school_class || "9-12"}.`;
+
+    // Add performance-aware guidance
+    if (weakTopics.length > 0) {
+      welcomeMessage += `\n\n**Based on your recent performance, I noticed you're struggling with:**\n`;
+      weakTopics.slice(0, 3).forEach(topic => {
+        welcomeMessage += `• ${topic}\n`;
+      });
+      welcomeMessage += `\nLet me help you master these topics!`;
+    } else {
+      welcomeMessage += `\n\nWhat would you like to learn today?`;
+    }
+    
     setMessages([{
       id: "welcome",
       role: "assistant",
-      content: `Hello! 👋 I'm your **AI Study Mentor**. I can help you with:
-
-📚 **Study Planning** - Create personalized study schedules
-❓ **Doubt Solving** - Explain concepts from your subjects
-📝 **Exam Preparation** - Tips and strategies for better scores
-🎯 **Quick Summaries** - Get key points of any topic
-
-I'm trained on NCERT curriculum for Class ${profile?.school_class || "9-12"}. What would you like to learn today?`,
+      content: welcomeMessage,
       timestamp: new Date(),
     }]);
   };
 
   const renderMessage = (message: ChatMessage) => {
     const isAi = message.role === "assistant";
+    const content = message.content;
+
+    const renderMarkdown = (text: string) => {
+      const lines = text.split('\n');
+      const elements: JSX.Element[] = [];
+      let bulletListActive = false;
+      let numberListActive = false;
+
+      lines.forEach((line, index) => {
+        const trimmed = line.trim();
+
+        // Skip empty lines (they create spacing)
+        if (!trimmed) {
+          if (bulletListActive || numberListActive) {
+            bulletListActive = false;
+            numberListActive = false;
+          }
+          return;
+        }
+
+        // Headers with bold text or numbered labels
+        if (trimmed.match(/^(\d+\.|[A-Za-z].*\*\*)/)) {
+          bulletListActive = false;
+          numberListActive = false;
+          
+          const headerMatch = trimmed.match(/^(\d+\.)\s+\*\*(.*?)\*\*(.*)$/);
+          if (headerMatch) {
+            elements.push(
+              <div key={index} className="mt-4 mb-2 font-semibold text-base">
+                <span>{headerMatch[1]} </span>
+                <span className="text-primary">{headerMatch[2]}</span>
+                <span>{headerMatch[3]}</span>
+              </div>
+            );
+          } else {
+            elements.push(
+              <p key={index} className="mt-3 mb-2 font-semibold text-base">{trimmed}</p>
+            );
+          }
+          return;
+        }
+
+        // Bold sections: **Section Name:**
+        if (trimmed.startsWith('**') && trimmed.includes(':**')) {
+          bulletListActive = false;
+          numberListActive = false;
+          const match = trimmed.match(/\*\*(.*?)\*\*(.*)$/);
+          if (match) {
+            elements.push(
+              <p key={index} className="mt-3 mb-1 font-semibold text-sm">
+                <span className="text-primary">{match[1]}</span>
+                <span>{match[2]}</span>
+              </p>
+            );
+          }
+          return;
+        }
+
+        // Numbered list items: 1. [text]
+        if (trimmed.match(/^\d+\./)) {
+          bulletListActive = false;
+          if (!numberListActive) {
+            numberListActive = true;
+          }
+          const match = trimmed.match(/^(\d+\.)\s+(.*)$/);
+          if (match) {
+            elements.push(
+              <li key={index} className="ml-4 mb-1 text-sm list-decimal">
+                {match[2]}
+              </li>
+            );
+          }
+          return;
+        }
+
+        // Bullet points: - [text] or • [text]
+        if (trimmed.startsWith('- ') || trimmed.startsWith('• ')) {
+          numberListActive = false;
+          if (!bulletListActive) {
+            bulletListActive = true;
+          }
+          elements.push(
+            <li key={index} className="ml-4 mb-1 text-sm list-disc">
+              {trimmed.substring(2)}
+            </li>
+          );
+          return;
+        }
+
+        // Regular paragraph with formatting
+        bulletListActive = false;
+        numberListActive = false;
+        
+        // Parse inline formatting: **bold**, _italic_, `code`
+        const renderInline = (text: string) => {
+          const parts: JSX.Element[] = [];
+          let lastIndex = 0;
+          
+          // Match **bold**, _italic_, `code`
+          const regex = /\*\*(.*?)\*\*|_(.*?)_|`(.*?)`/g;
+          let match;
+          
+          while ((match = regex.exec(text)) !== null) {
+            if (match.index > lastIndex) {
+              parts.push(
+                <span key={`text-${lastIndex}`}>{text.slice(lastIndex, match.index)}</span>
+              );
+            }
+            
+            if (match[1]) {
+              parts.push(<strong key={`bold-${match.index}`}>{match[1]}</strong>);
+            } else if (match[2]) {
+              parts.push(<em key={`italic-${match.index}`}>{match[2]}</em>);
+            } else if (match[3]) {
+              parts.push(
+                <code key={`code-${match.index}`} className="bg-background px-1 rounded text-xs">
+                  {match[3]}
+                </code>
+              );
+            }
+            
+            lastIndex = regex.lastIndex;
+          }
+          
+          if (lastIndex < text.length) {
+            parts.push(<span key={`text-${lastIndex}`}>{text.slice(lastIndex)}</span>);
+          }
+          
+          return parts.length > 0 ? parts : text;
+        };
+
+        elements.push(
+          <p key={index} className="mb-2 text-sm leading-relaxed">
+            {renderInline(trimmed)}
+          </p>
+        );
+      });
+
+      return elements;
+    };
+
     return (
       <motion.div
         key={message.id}
@@ -97,9 +294,9 @@ I'm trained on NCERT curriculum for Class ${profile?.school_class || "9-12"}. Wh
               : "bg-primary text-primary-foreground"
           }`}
         >
-          <div className="flex items-center gap-2 mb-2">
+          <div className="flex items-center gap-2 mb-3">
             {isAi ? (
-              <Sparkles className="w-4 h-4" />
+              <Brain className="w-4 h-4" />
             ) : (
               <User className="w-4 h-4" />
             )}
@@ -107,40 +304,8 @@ I'm trained on NCERT curriculum for Class ${profile?.school_class || "9-12"}. Wh
               {isAi ? "AI Mentor" : "You"}
             </span>
           </div>
-          <div className="text-sm leading-relaxed">
-            {message.content.split('\n').map((line, i) => {
-              // Handle bold **text**
-              if (line.includes('**')) {
-                const parts = line.split('**');
-                return (
-                  <p key={i} className="mb-2">
-                    {parts.map((part, j) => 
-                      j % 2 === 1 ? <strong key={j}>{part}</strong> : part
-                    )}
-                  </p>
-                );
-              }
-              // Handle bullet points
-              if (line.trim().startsWith('- ') || line.trim().startsWith('• ')) {
-                return (
-                  <li key={i} className="ml-4 mb-1">{line.trim().substring(2)}</li>
-                );
-              }
-              // Handle numbered lists
-              if (/^\d+\./.test(line.trim())) {
-                return (
-                  <li key={i} className="ml-4 mb-1">{line.trim().replace(/^\d+\.\s*/, '')}</li>
-                );
-              }
-              // Handle emoji headers
-              if (line.trim().match(/^[📚❓📝🎯]/)) {
-                return (
-                  <p key={i} className="font-semibold mb-2 mt-3">{line}</p>
-                );
-              }
-              // Regular text
-              return line.trim() ? <p key={i} className="mb-2">{line}</p> : <br key={i} />;
-            })}
+          <div className="text-sm leading-relaxed space-y-1">
+            {renderMarkdown(content)}
           </div>
         </div>
       </motion.div>
@@ -157,7 +322,7 @@ I'm trained on NCERT curriculum for Class ${profile?.school_class || "9-12"}. Wh
           </div>
           <div>
             <h3 className="font-semibold">AI Study Mentor</h3>
-            <p className="text-sm text-primary-foreground/80">Powered by AI - Ask me anything!</p>
+            <p className="text-sm text-primary-foreground/80">Answer academic questions instantly</p>
           </div>
           <div className="ml-auto flex gap-2">
             <Button variant="ghost" size="sm" onClick={handleNewChat} className="text-primary-foreground hover:bg-primary-foreground/20">
@@ -208,7 +373,7 @@ I'm trained on NCERT curriculum for Class ${profile?.school_class || "9-12"}. Wh
           <Input
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="Ask about any topic, concept, or get study help..."
+            placeholder="Ask about Physics, Chemistry, Math, Biology, or any study topic..."
             className="flex-1"
             disabled={isLoading}
           />
@@ -217,7 +382,7 @@ I'm trained on NCERT curriculum for Class ${profile?.school_class || "9-12"}. Wh
           </Button>
         </form>
         <p className="text-xs text-muted-foreground mt-2 text-center">
-          AI responses are generated and may not always be accurate. Verify important information.
+          For study-related questions only. Refer to NCERT textbooks for final answers.
         </p>
       </div>
     </div>

@@ -209,7 +209,7 @@ const ChapterView = ({ subject, profile, onBack, onStartQuiz }: ChapterViewProps
               </Button>
             ) : (
               <div className="flex-1 p-3 rounded-lg bg-success/10 text-success text-center text-sm font-medium">
-                ✓ You've completed reading this chapter
+                You've completed reading this chapter
               </div>
             )}
             
@@ -298,7 +298,7 @@ const ChapterView = ({ subject, profile, onBack, onStartQuiz }: ChapterViewProps
                     </div>
                     <div>
                       <h3 className="font-semibold group-hover:text-primary transition-colors">
-                        {chapter.name}
+                            You've completed reading this chapter
                       </h3>
                       <p className="text-sm text-muted-foreground line-clamp-1">
                         {chapter.summary}

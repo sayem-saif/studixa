@@ -64,7 +64,7 @@ const InternshipApplication = ({ userId, userName, userEmail }: InternshipApplic
           </p>
           <div className="p-4 rounded-xl bg-card border border-border inline-block">
             <p className="text-sm text-muted-foreground">
-              📧 You will receive updates at: <strong>{formData.email}</strong>
+              You will receive updates at: <strong>{formData.email}</strong>
             </p>
           </div>
         </div>
@@ -180,7 +180,7 @@ const InternshipApplication = ({ userId, userName, userEmail }: InternshipApplic
 
       {/* Info Section */}
       <div className="p-4 rounded-xl bg-secondary/50 border border-border">
-        <h4 className="font-semibold mb-2">💡 Tips for a strong application</h4>
+        <h4 className="font-semibold mb-2">Tips for a strong application</h4>
         <ul className="text-sm text-muted-foreground space-y-1">
           <li>• Complete all skill courses before applying</li>
           <li>• Pass the quizzes with high scores</li>
